@@ -1,4 +1,0 @@
-/home/bodyan/Desktop/MPI/src/cmake-build-debug/CMakeFiles/block.dir
-/home/bodyan/Desktop/MPI/src/cmake-build-debug/CMakeFiles/tape.dir
-/home/bodyan/Desktop/MPI/src/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/bodyan/Desktop/MPI/src/cmake-build-debug/CMakeFiles/rebuild_cache.dir

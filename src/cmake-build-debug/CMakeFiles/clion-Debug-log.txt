@@ -1,1 +1,0 @@
-CMakeLists.txt not found in /home/bodyan/Desktop/MPI/src Select CMakeLists.txt
