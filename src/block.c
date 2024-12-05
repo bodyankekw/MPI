@@ -1,15 +1,9 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
-void random_init_matrix_vector(double *matrix, double *vector, int rows, int cols) {
-    for (int i = 0; i < rows * cols; ++i)
-        matrix[i] = rand() % 10;
-    for (int i = 0; i < cols; ++i)
-        vector[i] = rand() % 10;
-}
-
-void print_matrix(double *matrix, int rows, int cols) {
+void print_matrix(float *matrix, int rows, int cols) {
     printf("Матрица:\n");
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
@@ -19,69 +13,108 @@ void print_matrix(double *matrix, int rows, int cols) {
     }
 }
 
-void print_vector(double *vector, int size) {
+void print_vector(float *vector, int size) {
     printf("Вектор:\n");
     for (int i = 0; i < size; ++i) {
         printf("%6.2f\n", vector[i]);
     }
 }
 
-int main(int argc, char *argv[]) {
-    int rank, size;
+int get_index(int row, int column, int size) {
+    return row * size + column;
+}
+
+void generate_matrix(float** matrix, int mat_size) {
+    *matrix = (float*)malloc(mat_size * mat_size * sizeof(float));
+    for (int i = 0; i < mat_size; i++) {
+        for (int j = 0; j < mat_size; j++) {
+            (*matrix)[get_index(i, j, mat_size)] = (float)(rand() % 10); // Random int [0-9]
+        }
+    }
+}
+
+void generate_vector(float** vec, int vec_size) {
+    *vec = (float*)malloc(vec_size * sizeof(float));
+    for (int i = 0; i < vec_size; i++) {
+        (*vec)[i] = (float)(rand() % 10); // Random int [0-9]
+    }
+}
+
+void mat_vec_mul(float* mat, float* vec, int rows, int cols, float* res) {
+    for (int i = 0; i < rows; i++) {
+        res[i] = 0;
+        for (int j = 0; j < cols; j++) {
+            res[i] += mat[get_index(i, j, cols)] * vec[j];
+        }
+    }
+}
+
+int main(int argc, char** argv) {
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    int N = 4; // Размер матрицы
-    if (rank == 0) {
+    int world_size, world_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+    int mat_size = 4; // Размер матрицы
+
+    if (world_rank == 0) {
         printf("Введите размер матрицы (N): ");
-        scanf("%d", &N);
+        scanf("%d", &mat_size);
     }
-    MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&mat_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    int grid_size = sqrt(size);
-    int block_size = N / grid_size;
-
-    double *matrix = NULL;
-    double *vector = malloc(N * sizeof(double));
-    double *result = malloc(N * sizeof(double));
-    double *local_matrix = malloc(block_size * block_size * sizeof(double));
-    double *local_vector = malloc(block_size * sizeof(double));
-    double *local_result = calloc(block_size, sizeof(double));
-
-    if (rank == 0) {
-        matrix = malloc(N * N * sizeof(double));
-        random_init_matrix_vector(matrix, vector, N, N);
-        print_matrix(matrix, N, N);
-        print_vector(vector, N);
+    int block_rows = mat_size / world_size; // Число строк на процесс
+    if (mat_size % world_size != 0) {
+        if (world_rank == 0) {
+            printf("Error: Matrix size must be divisible by the number of processes.\n");
+        }
+        MPI_Finalize();
+        return -1;
     }
 
-    MPI_Datatype block_type;
-    MPI_Type_vector(block_size, block_size, N, MPI_DOUBLE, &block_type);
-    MPI_Type_commit(&block_type);
-
-    MPI_Scatter(matrix, 1, block_type, local_matrix, block_size * block_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Scatter(vector, block_size, MPI_DOUBLE, local_vector, block_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    for (int i = 0; i < block_size; ++i)
-        for (int j = 0; j < block_size; ++j)
-            local_result[i] += local_matrix[i * block_size + j] * local_vector[j];
-
-    MPI_Gather(local_result, block_size, MPI_DOUBLE, result, block_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    if (rank == 0) {
-        printf("Результат:\n");
-        for (int i = 0; i < N; ++i)
-            printf("%f\n", result[i]);
-        free(matrix);
+    float* matrix = NULL;
+    float* vector = NULL;
+    float* local_matrix = (float*)malloc(block_rows * mat_size * sizeof(float));
+    float* local_result = (float*)malloc(block_rows * sizeof(float));
+    matrix = (float*)malloc(mat_size * mat_size * sizeof(float));
+    vector = (float*)malloc(mat_size * sizeof(float));
+    if (world_rank == 0) {
+        // Генерация матрицы и вектора
+        generate_matrix(&matrix, mat_size);
+        generate_vector(&vector, mat_size);
+        //print_matrix(matrix, mat_size, mat_size);
+        //print_vector(vector, mat_size);
+        printf("\n");
     }
 
-    free(vector);
-    free(result);
+    // Передача данных: делим матрицу и вектор
+    MPI_Scatter(matrix, block_rows * mat_size, MPI_FLOAT, local_matrix, block_rows * mat_size, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(vector, mat_size, MPI_FLOAT, 0, MPI_COMM_WORLD);
+
+    // Умножение локальной части матрицы на вектор
+    mat_vec_mul(local_matrix, vector, block_rows, mat_size, local_result);
+
+    // Сбор результатов
+    float* result = NULL;
+    if (world_rank == 0) {
+        result = (float*)malloc(mat_size * sizeof(float));
+    }
+    MPI_Gather(local_result, block_rows, MPI_FLOAT, result, block_rows, MPI_FLOAT, 0, MPI_COMM_WORLD);
+
+    if (world_rank == 0) {
+        print_vector(result,mat_size);
+        printf("\n");
+        free(result);
+    }
+
     free(local_matrix);
-    free(local_vector);
     free(local_result);
-    MPI_Type_free(&block_type);
+    if (world_rank == 0) {
+        free(matrix);
+        free(vector);
+    }
+
     MPI_Finalize();
     return 0;
 }
