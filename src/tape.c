@@ -50,8 +50,8 @@ int main(int argc, char *argv[]) {
     if (rank == 0) {
         matrix = malloc(N * N * sizeof(double));
         random_init_matrix_vector(matrix, vector, N, N);
-        print_matrix(matrix, N, N);
-        print_vector(vector, N);
+        //print_matrix(matrix, N, N);
+        //print_vector(vector, N);
     }
 
     MPI_Scatter(matrix, rows_per_proc * N, MPI_DOUBLE, local_matrix, rows_per_proc * N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
