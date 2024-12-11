@@ -13,7 +13,7 @@ void print_matrix(double *matrix, int rows, int cols) {
     printf("Матрица:\n");
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
-            printf("%6.2f ", matrix[i * cols + j]);
+            printf("%0.2f ", matrix[i * cols + j]);
         }
         printf("\n");
     }
@@ -22,12 +22,13 @@ void print_matrix(double *matrix, int rows, int cols) {
 void print_vector(double *vector, int size) {
     printf("Вектор:\n");
     for (int i = 0; i < size; ++i) {
-        printf("%6.2f\n", vector[i]);
+        printf("%0.2f\n", vector[i]);
     }
 }
 
 int main(int argc, char *argv[]) {
     int rank, size;
+    double start, end;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -52,6 +53,7 @@ int main(int argc, char *argv[]) {
         random_init_matrix_vector(matrix, vector, N, N);
         //print_matrix(matrix, N, N);
         //print_vector(vector, N);
+        start = MPI_Wtime();
     }
 
     MPI_Scatter(matrix, rows_per_proc * N, MPI_DOUBLE, local_matrix, rows_per_proc * N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -66,8 +68,11 @@ int main(int argc, char *argv[]) {
     if (rank == 0) {
         printf("Результат:\n");
         for (int i = 0; i < N; ++i)
-            printf("%f\n", result[i]);
+            printf("%0.2f\n", result[i]);
         free(matrix);
+
+        end = MPI_Wtime();
+        printf("Total time is %f\n", end - start);
     }
 
     free(vector);
