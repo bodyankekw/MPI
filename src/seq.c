@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 int get_index(int row, int column, int size) {
     return row * size + column;
@@ -43,12 +44,18 @@ int main() {
     generate_matrix(&matr, mat_size);
     generate_vector(&vec, mat_size);
 
-
+    clock_t start = clock();
     multiply_matrix_vector(matr, vec, res, mat_size);
-
+    clock_t end = clock();
     for (int i = 0; i < mat_size; i++) {
         printf("%0.2f\n", res[i]);
     }
+
+    clock_t diff = end - start;
+
+    double diff_in_secs = (double)((double)diff / CLOCKS_PER_SEC * 10);
+
+    printf("Total time is %f\n", diff_in_secs);
 
     free(matr);
     free(vec);

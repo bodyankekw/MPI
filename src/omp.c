@@ -51,15 +51,15 @@ int main() {
     generate_vector(&vec, mat_size);
 
 
-    double start_time = omp_get_wtime();
+    double start = omp_get_wtime();
     multiply_matrix_vector(matr, vec, res, mat_size);
-    double end_time = omp_get_wtime();
+    double end = omp_get_wtime();
 
     for (int i = 0; i < mat_size; i++) {
         printf("%0.2f\n", res[i]);
     }
 
-    printf("\nВремя выполнения умножения: %f секунд\n", end_time - start_time);
+    printf("Total time is %f\n", end - start);
 
     free(matr);
     free(vec);
